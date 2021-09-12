@@ -106,8 +106,11 @@ public class DownloadsManyCoestarArchives {
         log.info("Downloading clip {}", localClip);
         var downloadStatus = DownloadStatus.FAILED;
         try {
+            String commandExecutor = System.getProperty("os.name")
+                    .toLowerCase()
+                    .contains("windows") ? "cmd.exe /c" : "sh";
             ProcessBuilder builder = new ProcessBuilder(
-                    "cmd.exe", "/c",
+                    commandExecutor,
                     "\"" + downloadConfig.downloadDirectory() + "\" && youtube-dl " + localClip.getUrl());
             builder.redirectErrorStream(true);
             Process process = builder.start();
