@@ -108,7 +108,7 @@ public class DownloadsManyCoestarArchives {
         try {
             ProcessBuilder builder = new ProcessBuilder(
                     "cmd.exe", "/c",
-                    "\"C:\\clips\" && youtube-dl " + localClip.getUrl());
+                    "\"" + downloadConfig.downloadDirectory() + "\" && youtube-dl " + localClip.getUrl());
             builder.redirectErrorStream(true);
             Process process = builder.start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));

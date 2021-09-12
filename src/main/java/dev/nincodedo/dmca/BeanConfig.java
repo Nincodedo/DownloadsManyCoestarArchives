@@ -25,6 +25,9 @@ public class BeanConfig {
     @Value("${dmca.run_once:false}")
     private boolean runOnce;
 
+    @Value("${dmca.download_directory}")
+    private String downloadDirectory;
+
     @Bean
     public TwitchClient twitchClient(OAuth2Credential credential) {
         return TwitchClientBuilder.builder()
@@ -42,7 +45,7 @@ public class BeanConfig {
 
     @Bean
     public DownloadConfig downloadConfig() {
-        return new DownloadConfig(previousNumberOfDays, minimumViews, runOnce);
+        return new DownloadConfig(previousNumberOfDays, minimumViews, runOnce, downloadDirectory);
     }
 
 
