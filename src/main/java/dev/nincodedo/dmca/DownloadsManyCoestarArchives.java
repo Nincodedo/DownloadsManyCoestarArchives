@@ -9,6 +9,7 @@ import dev.nincodedo.dmca.model.ClipDTO;
 import dev.nincodedo.dmca.model.DownloadConfig;
 import dev.nincodedo.dmca.model.DownloadStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -24,6 +25,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @SpringBootApplication
@@ -67,38 +70,51 @@ public class DownloadsManyCoestarArchives {
                 .stream()
                 .filter(clip -> clip.getViewCount() >= downloadConfig.minimumViews())
                 .toList();
+
         log.info("Total clips to download: {}", clipList.size());
-        var gameIdList = clipList.stream().map(Clip::getGameId).toList();
-        var clipCreatorIds = clipList.stream().map(Clip::getCreatorId).toList();
-        var clipCreators = twitchClient.getHelix()
-                .getChannelInformation(credential.getAccessToken(), clipCreatorIds)
-                .execute()
-                .getChannels();
-        var games = twitchClient.getHelix()
-                .getGames(credential.getAccessToken(), gameIdList, null)
-                .execute()
-                .getGames();
+
+        Map<String, String> clipCreators = getClipCreators(clipList);
+        Map<String, String> games = getGameNames(clipList);
         var downloadStatuses = new ArrayList<DownloadStatus>();
+
         clipList.forEach(clip -> {
-            var localClip = mapExtraClipData(clip, games, clipCreators);
+            var localClip = mapExtraClipData(clip, games.get(clip.getGameId()), clipCreators.get(clip.getCreatorId()));
             downloadStatuses.add(downloadClip(localClip));
         });
+
         log.info("Finished downloading {} clips {}", downloadStatuses.size(), downloadStatuses);
         if (downloadConfig.runOnce()) {
             System.exit(0);
         }
     }
 
-    private ClipDTO mapExtraClipData(Clip clip, List<Game> games, List<ChannelInformation> clipCreator) {
+    @NotNull
+    private Map<String, String> getGameNames(List<Clip> clipList) {
+        var gameIdList = clipList.stream().map(Clip::getGameId).toList();
+        var games = twitchClient.getHelix()
+                .getGames(credential.getAccessToken(), gameIdList, null)
+                .execute()
+                .getGames().stream().collect(Collectors.toMap(Game::getId, Game::getName));
+        return games;
+    }
+
+    @NotNull
+    private Map<String, String> getClipCreators(List<Clip> clipList) {
+        var clipCreatorIds = clipList.stream().map(Clip::getCreatorId).toList();
+        var clipCreators = twitchClient.getHelix()
+                .getChannelInformation(credential.getAccessToken(), clipCreatorIds)
+                .execute()
+                .getChannels()
+                .stream()
+                .collect(Collectors.toMap(ChannelInformation::getBroadcasterId,
+                        ChannelInformation::getBroadcasterName));
+        return clipCreators;
+    }
+
+    private ClipDTO mapExtraClipData(Clip clip, String gameName, String clipCreatorName) {
         ClipDTO localClip = new ClipDTO(clip);
-        games.stream()
-                .filter(game -> game.getId().equals(localClip.getGameId()))
-                .findFirst()
-                .ifPresent(game -> localClip.setGameName(game.getName()));
-        clipCreator.stream()
-                .filter(creator -> creator.getBroadcasterId().equals(localClip.getCreatorId()))
-                .findFirst()
-                .ifPresent(channelInformation -> localClip.setCreatorName(channelInformation.getBroadcasterName()));
+        localClip.setGameName(gameName);
+        localClip.setCreatorName(clipCreatorName);
         return localClip;
     }
 
